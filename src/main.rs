@@ -1,23 +1,27 @@
-use actix_web::{App, HttpServer};
+use actix_web::{App, HttpServer, web};
+use sqlx::postgres::PgPoolOptions;
 use dotenv::dotenv;
 
-mod config;
-mod routes;
-mod handlers;
 mod models;
-mod db;
-mod middleware;
-mod utils;
+mod handlers;
+mod routes;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
-    env_logger::init();
+    
+    let database_url = std::env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set");
 
-    HttpServer::new(|| {
+    let pool = PgPoolOptions::new()
+        .connect(&database_url)
+        .await
+        .expect("Failed to create pool");
+
+    HttpServer::new(move || {
         App::new()
+            .app_data(web::Data::new(pool.clone()))
             .configure(routes::auth::auth_routes)
-            // Add other configurations and middleware here
     })
     .bind("127.0.0.1:8080")?
     .run()
